@@ -21,7 +21,7 @@ byte bufferLen = 18;                // Buffer length (2 bytes more than block si
 byte readBlockData[18];             // Buffer for read data
 
 String data2;                       // URL for sending data
-const String data1 = "https://script.google.com/macros/s/------------------------------------------/exec?name=";
+const String data1 = "https://script.google.com/macros/s/---API key has been removed---/exec?name=";
 const String room = "&room=Restricted_Area";  // Room info
 
 bool buzzerState = false;           // Buzzer state (false = off, true = on)
