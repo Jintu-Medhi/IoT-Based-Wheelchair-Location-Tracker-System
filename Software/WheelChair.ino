@@ -26,7 +26,7 @@ byte bufferLen = 18; // Buffer length (16 bytes + 2 for status)
 byte readBlockData[18]; // Array to hold block data
 
 String data2; // To hold the complete URL for the HTTP request
-const String data1 = "https://script.google.com/macros/s/----------------------------------/exec?name="; // Base URL
+const String data1 = "https://script.google.com/macros/s/---API key has been removed---/exec?name="; // Base URL
 const String room = "&room=Floor1_Room2";  // Room identifier
 void setup() 
 {
