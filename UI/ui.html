@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wheelchair Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 80%;
+    }
+
+    th, td {
+      padding: 12px;
+      border: 1px solid #ddd;
+    }
+
+    th {
+      background-color: #f4b084;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    .refresh-info {
+      margin-top: 20px;
+      font-size: 1.1em;
+      color: #888;
+    }
+
+    .available {
+      margin-top: 30px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      background-color: #f4b084;
+      border: none;
+      border-radius: 5px;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 50%;
+      background-color: white;
+      border: 2px solid #ccc;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      padding: 20px;
+      text-align: left;
+    }
+
+    .modal h2 {
+      margin-top: 0;
+    }
+
+    .modal .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    #usage-percentage {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hospital Wheelchair Tracker</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Wheelchair</th>
+        <th>Location</th>
+        <th>Entry Time</th>
+        <th>Exit Time</th>
+        <th>LogStatus</th>
+      </tr>
+    </thead>
+    <tbody id="data"></tbody>
+  </table>
+  <div class="refresh-info" id="refresh-info">Last refreshed just now</div>
+  <div class="available">
+    <h2>Available Wheelchairs</h2>
+    <ul id="available-wheelchairs"></ul>
+  </div>
+  <button onclick="openModal()">Check Usage Analysis</button>
+  <div class="modal" id="usage-modal">
+    <button class="close-btn" onclick="closeModal()">X</button>
+    <h2>Usage Analysis</h2>
+    <div id="usage-analysis"></div>
+  </div>
+
+  <script>
+    const sheetId = 'edit this';
+    //const apiKey = x;
+    const sheetName = 'Sheet1';
+    const allWheelchairs = ['WheelChair_1', 'WheelChair_2', 'WheelChair_3', 'WheelChair_4', 'WheelChair_5', 'WheelChair_6', 'WheelChair_7'];
+    let lastFetchTime = Date.now();
+
+    async function fetchData() {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}?key=${apiKey}`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        updateTable(data.values);
+        updateAvailableWheelchairs(data.values);
+        updateRefreshTime();
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+      }
+    }
+
+    function updateTable(data) {
+      const tableBody = document.getElementById('data');
+      tableBody.innerHTML = '';
+      for (let i = 2; i < data.length; i++) { // Skip the header row and the next one because of our formatting.
+        const row = `<tr>
+          <td>${data[i][0]}</td>
+          <td>${data[i][1]}</td>
+          <td>${data[i][2]}</td>
+          <td>${data[i][3]}</td>
+          <td>${data[i][4]}</td>
+          <td>${data[i][5]}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+      }
+    }
+
+    function updateAvailableWheelchairs(data) {
+      const occupiedWheelchairs = data.slice(1).map(row => row[1]); // Get wheelchair names from the data
+      const availableWheelchairs = allWheelchairs.filter(w => !occupiedWheelchairs.includes(w));
+      const availableList = document.getElementById('available-wheelchairs');
+      availableList.innerHTML = '';
+      availableWheelchairs.forEach(wheelchair => {
+        const item = `<li>${wheelchair}</li>`;
+        availableList.innerHTML += item;
+      });
+    }
+
+    function updateRefreshTime() {
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - lastFetchTime) / 1000);
+      lastFetchTime = now;
+      const refreshInfo = document.getElementById('refresh-info');
+      refreshInfo.textContent = `Last refreshed ${elapsedSeconds} seconds ago`;
+    }
+
+    function parseTime(timeStr) {
+      const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+      return hours + minutes / 60 + seconds / 3600; // Convert to hours
+    }
+
+    function openModal() {
+      checkUsageAnalysis(); // Call the analysis when modal opens
+      document.getElementById('usage-modal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('usage-modal').style.display = 'none';
+    }
+
+    function checkUsageAnalysis() {
+      const data = Array.from(document.querySelectorAll('#data tr')).map(row => row.cells);
+      let totalUsageHours = 0;
+      let usageCount = 0;
+      data.forEach(row => {
+        const entryTime = row[3]?.textContent;
+        const exitTime = row[4]?.textContent;
+        if (entryTime && exitTime) {
+          const entryHours = parseTime(entryTime);
+          const exitHours = parseTime(exitTime);
+          const usageHours = exitHours - entryHours;
+          if (usageHours > 0) {
+            totalUsageHours += usageHours;
+            usageCount++;
+          }
+        }
+      });
+
+      const averageUsageHours = totalUsageHours / allWheelchairs.length;
+      const usagePercentage = (averageUsageHours / 24) * 100;
+      const usageAnalysis = document.getElementById('usage-analysis');
+      const percentageColor = usagePercentage < 80 ? 'green' : 'red';
+      usageAnalysis.innerHTML = `
+        On average, each wheelchair was used for ${averageUsageHours.toFixed(2)} hours today.<br>
+        The usage percentage is <span id="usage-percentage" style="color:${percentageColor}">${usagePercentage.toFixed(2)}%</span>.
+      `;
+
+      if (usagePercentage < 80) {
+        usageAnalysis.innerHTML += "<br>You do not need to purchase more wheelchairs.";
+      } else {
+        usageAnalysis.innerHTML += "<br>You may have to purchase more wheelchairs.";
+      }
+    }
+
+    // Fetch data every 60 seconds
+    fetchData();
+    setInterval(fetchData, 60000);
+  </script>
+</body>
+</html>
