@@ -1,0 +1,150 @@
+function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
+  var params = e.parameter;
+  
+  initializeWheelchairs(sheet);
+  
+  var wheelchair = params.name;
+  var room = params.room;
+  var now = new Date();
+  
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  var lastEntryRow = -1;
+  var isLoggedOut = false;
+  
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (data[i][1] === wheelchair && data[i][2] === room) {
+      lastEntryRow = i + 2;
+      
+      if (data[i][5] === "Manually logged out" || data[i][5] === "Automatically logged out") {
+        isLoggedOut = true;
+      }
+      break;
+    }
+  }
+  
+  if (lastEntryRow === -1 || isLoggedOut) {
+    var newRow = sheet.getLastRow() + 1;
+    sheet.getRange(newRow, 1).setValue(Utilities.formatDate(now, Session.getScriptTimeZone(), "MM/dd/yyyy"));
+    sheet.getRange(newRow, 2).setValue(wheelchair);
+    sheet.getRange(newRow, 3).setValue(room);
+    sheet.getRange(newRow, 4).setValue(Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss"));
+    sheet.getRange(newRow, 6).setValue("In Use");
+    
+    updateWheelchairStatus(sheet, wheelchair, "Occupied");
+    scheduleLogout(wheelchair);
+    
+  } else if (lastEntryRow !== -1 && data[lastEntryRow - 2][2] === room && !isLoggedOut) {
+    sheet.getRange(lastEntryRow, 5).setValue(Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss"));
+    sheet.getRange(lastEntryRow, 6).setValue("Manually logged out");
+    
+    if (isWheelchairOccupiedInOtherRooms(sheet, wheelchair)) {
+      updateWheelchairStatus(sheet, wheelchair, "Occupied");
+    } else {
+      updateWheelchairStatus(sheet, wheelchair, "Free");
+    }
+  }
+  
+  return ContentService.createTextOutput("Logged successfully");
+}
+
+function isWheelchairOccupiedInOtherRooms(sheet, wheelchair) {
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][1] === wheelchair && (data[i][5] === "In Use" || data[i][5] === "Occupied")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function initializeWheelchairs(sheet) {
+  var wheelchairs = ['WheelChair_1', 'WheelChair_2', 'WheelChair_3', 'WheelChair_4'];
+  for (var i = 0; i < wheelchairs.length; i++) {
+    var col = i + 9; // Start from column I (9th column)
+    var status = sheet.getRange(2, col).getValue();
+    if (status !== "Occupied") {
+      sheet.getRange(2, col).setValue("Free");
+    }
+  }
+}
+
+function autoLogout(wheelchair) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
+  var now = new Date();
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][1] === wheelchair) {
+      var row = i + 2; // Row index in the sheet
+      
+      var status = data[i][5];
+      Logger.log("Auto Logout Status for " + wheelchair + ": " + status);
+      if (status === "Manually logged out") {
+        return; // Exit if already logged out
+      }
+      
+      sheet.getRange(row, 5).setValue(Utilities.formatDate(now, Session.getScriptTimeZone(), "HH:mm:ss"));
+      sheet.getRange(row, 6).setValue("Automatically logged out");
+      
+      if (isWheelchairOccupiedInOtherRooms(sheet, wheelchair)) {
+        updateWheelchairStatus(sheet, wheelchair, "Occupied");
+      } else {
+        updateWheelchairStatus(sheet, wheelchair, "Free");
+      }
+    }
+  }
+}
+
+function updateWheelchairStatus(sheet, wheelchair, status) {
+  var statusColumn = {
+    'WheelChair_1': 9,
+    'WheelChair_2': 10,
+    'WheelChair_3': 11,
+    'WheelChair_4': 12
+  };
+  
+  var col = statusColumn[wheelchair];
+  if (col) {
+    sheet.getRange(2, col).setValue(status);
+  }
+}
+
+function scheduleLogout(wheelchair) {
+  var triggerFunction = "triggerAutoLogout_" + wheelchair.replace(" ", "_");
+  
+  deleteTriggersForWheelchair(triggerFunction);
+  
+  ScriptApp.newTrigger(triggerFunction)
+    .timeBased()
+    .after(60 * 1000) // 1 minute
+    .create();
+}
+
+function deleteTriggersForWheelchair(triggerFunction) {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === triggerFunction) {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+}
+
+// Trigger functions for automatic logout
+function triggerAutoLogout_WheelChair_1() {
+  autoLogout("WheelChair_1");
+}
+
+function triggerAutoLogout_WheelChair_2() {
+  autoLogout("WheelChair_2");
+}
+
+function triggerAutoLogout_WheelChair_3() {
+  autoLogout("WheelChair_3");
+}
+
+function triggerAutoLogout_WheelChair_4() {
+  autoLogout("WheelChair_4");
+}
+
+
