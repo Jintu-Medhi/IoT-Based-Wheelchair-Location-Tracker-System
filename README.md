@@ -1,7 +1,5 @@
 # IoT-Based Wheelchair Location Tracker System
 
-<img width="641" alt="NodeMCU_Circuit_Diagram" src="https://github.com/user-attachments/assets/8dd850d7-74e4-4386-8c90-2b32a29c52e2" />
-
 
 ## Advanced Indoor Positioning System for Wheelchairs
 
